@@ -130,6 +130,23 @@ public final class TestUtils {
   }
 
   /**
+   * Determines whether a null field value is valid for the given operator per OData 4.01.
+   *
+   * Per OData 4.01 (Part 2, Section 5.1.1.1):
+   * - ne: "null is not equal to any value but itself" → null ne <value> = true (valid in results)
+   * - eq: null equals only itself → null eq <value> = false
+   * - gt/lt: if any operand is null → false
+   * - ge/le: if only one is null → false
+   *
+   * @param op the OData comparison operator
+   * @return true if a null field value satisfies the operator, false otherwise
+   */
+  private static boolean isNullValidForOperator(String op) {
+    // Only 'ne' returns true when comparing null to a non-null value
+    return Operators.NE.equals(op);
+  }
+
+  /**
    * Compares each item in the string (JSON) payload with the given field name to the asserted value using op.
    *
    * @param payload       JSON payload to compare
@@ -141,8 +158,14 @@ public final class TestUtils {
   public static boolean compareStringPayloadToAssertedValue(String payload, String fieldName, String op, String assertedValue) {
     AtomicBoolean result = new AtomicBoolean(false);
     //iterate over the items and count the number of fields with data to determine whether there are data present
-    from(payload).getList(JSON_VALUE_PATH, HashMap.class).forEach(item ->
-        result.compareAndSet(result.get(), compare((String) item.get(fieldName), op, assertedValue)));
+    from(payload).getList(JSON_VALUE_PATH, HashMap.class).forEach(item -> {
+      Object rawValue = item.get(fieldName);
+      if (rawValue == null) {
+        result.compareAndSet(result.get(), isNullValidForOperator(op));
+        return;
+      }
+      result.compareAndSet(result.get(), compare((String) rawValue, op, assertedValue));
+    });
     return result.get();
   }
 
@@ -158,8 +181,14 @@ public final class TestUtils {
   public static boolean compareIntegerPayloadToAssertedValue(String payload, String fieldName, String op, Integer assertedValue) {
     AtomicBoolean result = new AtomicBoolean(false);
     //iterate over the items and count the number of fields with data to determine whether there are data present
-    from(payload).getList(JSON_VALUE_PATH, HashMap.class).forEach(item ->
-        result.compareAndSet(result.get(), compare((Integer) item.get(fieldName), op, assertedValue)));
+    from(payload).getList(JSON_VALUE_PATH, HashMap.class).forEach(item -> {
+      Object rawValue = item.get(fieldName);
+      if (rawValue == null) {
+        result.compareAndSet(result.get(), isNullValidForOperator(op));
+        return;
+      }
+      result.compareAndSet(result.get(), compare((Integer) rawValue, op, assertedValue));
+    });
     return result.get();
   }
 
@@ -175,8 +204,14 @@ public final class TestUtils {
   public static boolean compareDecimalPayloadToAssertedValue(String payload, String fieldName, String op, Double assertedValue) {
     AtomicBoolean result = new AtomicBoolean(false);
     //iterate over the items and count the number of fields with data to determine whether there are data present
-    from(payload).getList(JSON_VALUE_PATH, HashMap.class).forEach(item ->
-        result.compareAndSet(result.get(), compare(Double.parseDouble(item.get(fieldName).toString()), op, assertedValue)));
+    from(payload).getList(JSON_VALUE_PATH, HashMap.class).forEach(item -> {
+      Object rawValue = item.get(fieldName);
+      if (rawValue == null) {
+        result.compareAndSet(result.get(), isNullValidForOperator(op));
+        return;
+      }
+      result.compareAndSet(result.get(), compare(Double.parseDouble(rawValue.toString()), op, assertedValue));
+    });
     return result.get();
   }
 
@@ -194,8 +229,13 @@ public final class TestUtils {
     //iterate over the items and count the number of fields with data to determine whether there are data present
     from(payload).getList(JSON_VALUE_PATH, HashMap.class).forEach(item -> {
       try {
+        Object rawValue = item.get(fieldName);
+        if (rawValue == null) {
+          result.compareAndSet(result.get(), isNullValidForOperator(op));
+          return;
+        }
         result.compareAndSet(result.get(), compare(
-            parseTimestampFromEdmDateTimeOffsetString((String) item.get(fieldName)), op,
+            parseTimestampFromEdmDateTimeOffsetString((String) rawValue), op,
             parseTimestampFromEdmDateTimeOffsetString(assertedValue)));
       } catch (Exception ex) {
         fail(getDefaultErrorMessage(ex));
@@ -218,7 +258,12 @@ public final class TestUtils {
 
     from(payload).getList(JSON_VALUE_PATH, HashMap.class).forEach(item -> {
       try {
-        result.compareAndSet(result.get(), compare(getTimestampPart(datePart, item.get(fieldName)), op, assertedValue));
+        Object rawValue = item.get(fieldName);
+        if (rawValue == null) {
+          result.compareAndSet(result.get(), isNullValidForOperator(op));
+          return;
+        }
+        result.compareAndSet(result.get(), compare(getTimestampPart(datePart, rawValue), op, assertedValue));
       } catch (Exception ex) {
         fail(getDefaultErrorMessage(ex));
       }
@@ -242,7 +287,12 @@ public final class TestUtils {
 
     from(payload).getList(JSON_VALUE_PATH, HashMap.class).forEach(item -> {
       try {
-        result.compareAndSet(result.get(), compare(getDatePart(datePart, item.get(fieldName)), op, assertedValue));
+        Object rawValue = item.get(fieldName);
+        if (rawValue == null) {
+          result.compareAndSet(result.get(), isNullValidForOperator(op));
+          return;
+        }
+        result.compareAndSet(result.get(), compare(getDatePart(datePart, rawValue), op, assertedValue));
       } catch (Exception ex) {
         fail(getDefaultErrorMessage(ex));
       }
@@ -268,7 +318,12 @@ public final class TestUtils {
 
     from(payload).getList(JSON_VALUE_PATH, HashMap.class).forEach(item -> {
       try {
-        timestampPart.set(getTimestampPart(FRACTIONAL, item.get(fieldName)));
+        Object rawValue = item.get(fieldName);
+        if (rawValue == null) {
+          result.set(isNullValidForOperator(op));
+          return;
+        }
+        timestampPart.set(getTimestampPart(FRACTIONAL, rawValue));
         if (timestampPart.get() != null) fractionalSeconds.set(timestampPart.get() / CONVERSION_FACTOR);
 
         result.set(compare(fractionalSeconds.get(), op, assertedValue));
@@ -749,7 +804,14 @@ public final class TestUtils {
 
     from(responseData).getList(JSON_VALUE_PATH, HashMap.class).forEach(item -> {
       try {
-        fieldValue.set(parseTimestampFromEdmDateTimeOffsetString(item.get(fieldName).toString()));
+        Object rawValue = item.get(fieldName);
+        if (rawValue == null) {
+          // OData 4.01: null ne <value> → true (valid), all other ops → false (invalid)
+          assertTrue("Null field value for '" + fieldName + "' is only valid with 'ne' operator, got '" + op + "'",
+              isNullValidForOperator(op));
+          return;
+        }
+        fieldValue.set(parseTimestampFromEdmDateTimeOffsetString(rawValue.toString()));
         assertTrue(compare(fieldValue.get(), op, timestamp));
       } catch (EdmPrimitiveTypeException tex) {
         fail("ERROR: Cannot Convert the value in " + fieldValue.get() + " to a Timestamp value!!" + tex);
@@ -959,4 +1021,3 @@ public final class TestUtils {
     }
   }
 }
-
