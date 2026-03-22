@@ -640,19 +640,22 @@ public class Commander {
      */
     public Commander build() {
       Commander commander = new Commander();
-      Commander.serviceRoot = this.serviceRoot;
-      Commander.bearerToken = this.bearerToken;
-      Commander.clientId = this.clientId;
-      Commander.clientSecret = this.clientSecret;
-      Commander.tokenUri = this.tokenUri;
+      // Null-guard: only overwrite statics when builder has values.
+      // LookupResource creates a second Builder() with no credentials;
+      // without this guard it clobbers the OAuth config from the first build().
+      if (this.serviceRoot  != null) Commander.serviceRoot  = this.serviceRoot;
+      if (this.bearerToken  != null) Commander.bearerToken  = this.bearerToken;
+      if (this.clientId     != null) Commander.clientId     = this.clientId;
+      if (this.clientSecret != null) Commander.clientSecret = this.clientSecret;
+      if (this.tokenUri     != null) Commander.tokenUri     = this.tokenUri;
 
-      //items required for OAuth client
-      isOAuthClient = clientId != null && !clientId.isEmpty()
-          && clientSecret != null && !clientSecret.isEmpty()
-          && tokenUri != null && !tokenUri.isEmpty();
+      //items required for OAuth client — use preserved statics, not builder locals
+      isOAuthClient = Commander.clientId != null && !Commander.clientId.isEmpty()
+          && Commander.clientSecret != null && !Commander.clientSecret.isEmpty()
+          && Commander.tokenUri != null && !Commander.tokenUri.isEmpty();
 
       //items required for token client
-      isTokenClient = bearerToken != null && !bearerToken.isEmpty();
+      isTokenClient = Commander.bearerToken != null && !Commander.bearerToken.isEmpty();
 
       LOG.debug("\nUsing EdmEnabledClient: " + useEdmEnabledClient + "...");
       if (useEdmEnabledClient) {
@@ -662,9 +665,9 @@ public class Commander {
       }
 
       if (isOAuthClient) {
-        commander.getClient().getConfiguration().setHttpClientFactory(new OAuth2HttpClientFactory(clientId, clientSecret, tokenUri, scope));
+        commander.getClient().getConfiguration().setHttpClientFactory(new OAuth2HttpClientFactory(Commander.clientId, Commander.clientSecret, Commander.tokenUri, scope));
       } else if (isTokenClient) {
-        commander.getClient().getConfiguration().setHttpClientFactory(new TokenHttpClientFactory(bearerToken));
+        commander.getClient().getConfiguration().setHttpClientFactory(new TokenHttpClientFactory(Commander.bearerToken));
       }
       return commander;
     }

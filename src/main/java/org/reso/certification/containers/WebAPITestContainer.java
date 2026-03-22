@@ -87,7 +87,9 @@ public final class WebAPITestContainer implements TestContainer {
   private final AtomicBoolean isDataSystemValid = new AtomicBoolean(false);
   private final AtomicReference<Set<ValidationMessage>> schemaValidationErrors = new AtomicReference<>();
   private final AtomicBoolean isUsingMetadataFile = new AtomicBoolean(false);
-  private final AtomicBoolean useEdmEnabledClient = new AtomicBoolean(true);
+  // DD 2.0: EdmEnabledClient double-encodes $ signs and causes background metadata
+  // re-fetches that break Lookup resource replication. Use plain ODataClient instead.
+  private final AtomicBoolean useEdmEnabledClient = new AtomicBoolean(false);
   // request instance variables - these get resetMarkupBuffer with every request
   //TODO: refactor underlying response properties to use a ODataTransportWrapper (or any TransportWrapper)
   //      and create the test container with the appropriate response of the transport wrapper
